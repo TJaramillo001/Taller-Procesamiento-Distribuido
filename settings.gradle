@@ -1,0 +1,6 @@
+rootProject.name = 'matrix-master-worker'
+
+include 'common'
+include 'worker'
+include 'server'
+include 'client'

@@ -1,0 +1,19 @@
+plugins {
+    id 'application'
+}
+
+dependencies {
+    implementation project(':common')
+}
+
+application {
+    mainClass = 'co.icesi.matrix.master.MasterMain'
+}
+
+task runMaster(type: JavaExec) {
+    classpath = sourceSets.main.runtimeClasspath
+    mainClass = 'co.icesi.matrix.master.MasterMain'
+    standardInput = System.in
+    // Gradle lee la salida del programa como UTF-8; sin esto las tildes se ven como '?'
+    jvmArgs '-Dstdout.encoding=UTF-8', '-Dstderr.encoding=UTF-8'
+}
