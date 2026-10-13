@@ -136,6 +136,21 @@ public class MasterServiceI implements MasterService {
     @Override
     public void registerWorker(String workerId, String endpoint, Current current) {
         try {
+            String callerIp = null;
+            if (current.con != null) {
+                for (com.zeroc.Ice.ConnectionInfo i = current.con.getInfo(); i != null; i = i.underlying) {
+                    if (i instanceof com.zeroc.Ice.IPConnectionInfo) {
+                        callerIp = ((com.zeroc.Ice.IPConnectionInfo) i).remoteAddress;
+                        break;
+                    }
+                }
+            }
+            if (callerIp != null && (endpoint.contains("localhost") || endpoint.contains("127."))
+                    && !callerIp.startsWith("127.")) {
+                endpoint = endpoint.replaceAll("-h \\S+", "-h " + callerIp);
+                System.out.printf("[MASTER] Endpoint de %s corregido a %s%n", workerId, endpoint);
+            }
+            
             Communicator communicator = current.adapter.getCommunicator();
             String proxyStr = "WorkerService:" + endpoint;
             ObjectPrx base = communicator.stringToProxy(proxyStr);

@@ -22,8 +22,8 @@ public class WorkerMain {
         String masterHost = "localhost";
         int masterPort = 10000;
 
-        // Permite configurar puerto e ID por argumentos de terminal:
-        // ./gradlew :worker:runWorker --args="10002 Worker-2 localhost 10000"
+        // Permite configurar puerto, ID, master y (opcional) la IP que este worker anuncia:
+        // ./gradlew :worker:runWorker --args="10002 Worker-2 <IP_MASTER> 10000 [IP_WORKER]"
         if (args.length >= 1) {
             try {
                 workerPort = Integer.parseInt(args[0]);
@@ -40,6 +40,25 @@ public class WorkerMain {
             } catch (NumberFormatException ignored) {}
         }
 
+        // IP con la que el Master podrá contactar a este worker (no puede ser "localhost" si el Master
+        // está en otra máquina). Si no se pasa como 5to argumento, se pregunta al SO qué interfaz
+        // local usaría para llegar al Master (connect UDP no envía paquetes, solo consulta la ruta).
+        String workerHost = null;
+        if (args.length >= 5) {
+            workerHost = args[4];
+        } else {
+            try (java.net.DatagramSocket s = new java.net.DatagramSocket()) {
+                s.connect(java.net.InetAddress.getByName(masterHost), masterPort);
+                workerHost = s.getLocalAddress().getHostAddress();
+            } catch (Exception e) {
+                System.err.println("[WARN] No se pudo detectar la IP local: " + e.getMessage());
+            }
+        }
+        if (workerHost == null || workerHost.equals("0.0.0.0")) {
+            workerHost = "localhost";
+        }
+        System.out.println("[WORKER] IP anunciada al Master: " + workerHost);
+
         System.out.println("=============================================================");
         System.out.printf("  INICIANDO WORKER [%s] EN PUERTO %d%n", workerId, workerPort);
         System.out.println("=============================================================");
@@ -49,6 +68,8 @@ public class WorkerMain {
         InitializationData initData = new InitializationData();
         initData.properties = Util.createProperties();
         initData.properties.setProperty("Ice.MessageSizeMax", "102400");
+        // Si el Master es inalcanzable (IP errada o firewall), fallar en 5 s en vez de quedarse colgado
+        initData.properties.setProperty("Ice.Override.ConnectTimeout", "5000");
 
         try (Communicator communicator = Util.initialize(args, initData)) {
             // 1. Crear el adaptador de objetos del Worker
@@ -69,7 +90,7 @@ public class WorkerMain {
                 MasterServicePrx masterPrx = MasterServicePrx.checkedCast(masterBase);
                 if (masterPrx != null) {
                     // Notificar al master la dirección IP/puerto alcanzable de este worker
-                    String workerContactEndpoint = "tcp -h localhost -p " + workerPort;
+                    String workerContactEndpoint = "tcp -h " + workerHost + " -p " + workerPort;
                     masterPrx.registerWorker(workerId, workerContactEndpoint);
                     System.out.printf("[WORKER] Registrado exitosamente en Master (%s)%n", masterEndpoint);
                 } else {

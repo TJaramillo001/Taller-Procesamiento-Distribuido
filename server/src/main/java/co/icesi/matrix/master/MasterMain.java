@@ -32,6 +32,7 @@ public class MasterMain {
         InitializationData initData = new InitializationData();
         initData.properties = Util.createProperties();
         initData.properties.setProperty("Ice.MessageSizeMax", "102400");
+        initData.properties.setProperty("Ice.Override.ConnectTimeout", "5000");
 
         try (Communicator communicator = Util.initialize(args, initData)) {
             // 1. Crear el adaptador de objetos del Master
